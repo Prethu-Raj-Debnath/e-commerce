@@ -16,10 +16,11 @@ export const protectRoute = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  console.log("inside this middleware")
   try {
     const authReq = req as AuthRequest;
     const accessToken = req.cookies?.accessToken as string | undefined;
-
+    console.log(accessToken)
     if (!accessToken) {
       res.status(401).json({ message: "Unauthorized - No access token provided" });
       return;

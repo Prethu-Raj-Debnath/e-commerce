@@ -10,6 +10,7 @@ interface DecodedToken extends JwtPayload {
 interface AuthRequest extends Request {
   user?: IUser;
 }
+const isProduction = process.env.NODE_ENV === "production";
 
 
 const generateTokens = (userId: string) => {
@@ -32,14 +33,14 @@ const storeRefreshToken = async (userId: string, refreshToken: string) => {
 const setCookies = (res: Response, accessToken: string, refreshToken: string) => {
 	res.cookie("accessToken", accessToken, {
 		httpOnly: true, // prevent XSS attacks, cross site scripting attack
-		secure: process.env.NODE_ENV === "production",
-		sameSite: "none", // prevents CSRF attack, cross-site request forgery attack
+		sameSite: isProduction ? "none" : "lax",
+		secure: isProduction, // prevents CSRF attack, cross-site request forgery attack
 		maxAge: 15 * 60 * 1000, // 15 minutes
 	});
 	res.cookie("refreshToken", refreshToken, {
 		httpOnly: true, // prevent XSS attacks, cross site scripting attack
-		secure: process.env.NODE_ENV === "production",
-		sameSite: "none", // prevents CSRF attack, cross-site request forgery attack
+		sameSite: isProduction ? "none" : "lax",
+		secure: isProduction, // prevents CSRF attack, cross-site request forgery attack
 		maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 	});
 };

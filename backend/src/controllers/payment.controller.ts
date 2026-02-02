@@ -5,7 +5,7 @@ import { stripe } from "../lib/stripe.js";
 import { IUser } from "../models/user.model.js";
 
 interface AuthRequest extends Request {
-  user: IUser;
+	user: IUser;
 }
 
 interface CheckoutProduct {
@@ -75,12 +75,12 @@ export const createCheckoutSession = async (
 			cancel_url: `${process.env.CLIENT_URL}/purchase-cancel`,
 			discounts: coupon
 				? [
-						{
-							coupon: await createStripeCoupon(
-								coupon.discountPercentage
-							),
-						},
-				  ]
+					{
+						coupon: await createStripeCoupon(
+							coupon.discountPercentage
+						),
+					},
+				]
 				: [],
 			metadata: {
 				userId: req.user._id.toString(),
@@ -100,7 +100,7 @@ export const createCheckoutSession = async (
 		}
 
 		res.status(200).json({
-			id: session.id,
+			url: session.url,
 			totalAmount: totalAmount / 100,
 		});
 	} catch (error) {

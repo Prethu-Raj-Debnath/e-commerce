@@ -1,1 +1,9 @@
 @import "tailwindcss";
+.custombg{
+    background: radial-gradient(
+  ellipse at top,
+  rgba(49, 75, 118, 0.705),
+  rgba(47, 130, 104, 0.342),
+  rgba(50, 3, 3, 0.1)
+);
+}
