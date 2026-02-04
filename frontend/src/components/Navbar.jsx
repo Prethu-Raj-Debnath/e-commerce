@@ -13,7 +13,14 @@ const Navbar = () => {
 			<div className='container mx-auto px-4 py-3'>
 				<div className='flex flex-wrap justify-between items-center'>
 					<Link to='/' className='text-2xl font-bold text-emerald-400 items-center space-x-2 flex'>
-						E-Commerce
+						<span className="text-6xl font-black text-cyan-400 glow">
+  R
+</span>
+<span className="font-bold text-white tracking-widest">
+  AJ<span className="text-cyan-400">MART</span>
+</span>
+
+
 					</Link>
 
 					<nav className='flex flex-wrap items-center gap-4'>

@@ -7,3 +7,7 @@
   rgba(50, 3, 3, 0.1)
 );
 }
+.glow {
+  text-shadow: 0 0 10px #22d3ee, 0 0 30px #22d3ee;
+}
+
