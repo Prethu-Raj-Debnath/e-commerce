@@ -103,6 +103,7 @@ A modern, full-stack e-commerce platform built with React, Node.js, and MongoDB.
 - **Caching**: Redis (Upstash)
 - **Authentication**: JWT (access + refresh tokens)
 - **Payments**: Stripe API
+- **Coupons**: Coupons After purchasing a certain amount and using is stripe payment
 - **File Storage**: Cloudinary
 
 ### DevOps & Tools
@@ -122,17 +123,20 @@ ecommerce/
 │   │   ├── components/         # Reusable UI components
 │   │   │   ├── Navbar.jsx
 │   │   │   ├── ProductCard.jsx
-│   │   │   └── PrivateRoute.jsx
+│   │   │   └── ManyOtherComponents.jsx
 │   │   ├── pages/              # Route pages
-│   │   │   ├── HomePage.jsx
+│   │   │   ├── AdminPage.jsx
 │   │   │   ├── LoginPage.jsx
 │   │   │   ├── SignupPage.jsx
 │   │   │   ├── CartPage.jsx
-│   │   │   ├── CheckoutPage.jsx
-│   │   │   └── AdminDashboard.jsx
+│   │   │   ├── CategoryPage.jsx
+│   │   │   └── Homepage.jsx
+│   │   │   └── PurchaseSuccessPage.jsx
+│   │   │   └── PurchaseCancelPage.jsx
 │   │   ├── stores/             # Zustand state stores
-│   │   │   ├── useAuthStore.js
+│   │   │   ├── useUserStore.js
 │   │   │   └── useCartStore.js
+│   │   │   └── useProductStore.js
 │   │   ├── lib/                # Utility functions & API
 │   │   │   └── axios.js
 │   │   ├── App.jsx             # Main app component
@@ -146,23 +150,26 @@ ecommerce/
 ├── backend/                     # Express API server
 │   ├── src/
 │   │   ├── controllers/        # Route controllers
+│   │   │   ├── analytics.controller.js
 │   │   │   ├── auth.controller.js
-│   │   │   ├── product.controller.js
 │   │   │   ├── cart.controller.js
+│   │   │   ├── coupon.controller.js
 │   │   │   └── payment.controller.js
+│   │   │   └── product.controller.js
 │   │   ├── models/             # Mongoose schemas
-│   │   │   ├── User.model.js
-│   │   │   ├── Product.model.js
-│   │   │   ├── Cart.model.js
-│   │   │   └── Order.model.js
+│   │   │   ├── user.model.js
+│   │   │   ├── product.model.js
+│   │   │   ├── coupon.model.js
+│   │   │   └── order.model.js
 │   │   ├── routes/             # API routes
 │   │   │   ├── auth.route.js
 │   │   │   ├── product.route.js
 │   │   │   ├── cart.route.js
 │   │   │   └── payment.route.js
+│   │   │   └── analytics.route.js
+│   │   │   └── coupon.route.js
 │   │   ├── middleware/         # Express middleware
 │   │   │   ├── auth.middleware.js
-│   │   │   └── admin.middleware.js
 │   │   ├── lib/                # Configuration modules
 │   │   │   ├── db.js
 │   │   │   ├── redis.js
@@ -186,8 +193,8 @@ ecommerce/
 
 Ensure you have the following installed:
 
-- **Node.js** >= 18.x
-- **pnpm** >= 8.x (or npm/yarn)
+- **Node.js** >= 20.x
+- **pnpm** >= 10.x (or npm/yarn)
 - **MongoDB** (local or Atlas cluster)
 - **Redis** instance (Upstash recommended)
 - **Stripe** account for payments
@@ -279,316 +286,142 @@ pnpm -C backend start
 
 Access the application at `http://localhost:5000`
 
----
-
 ## 📡 API Documentation
 
 ### Base URL
 ```
-http://localhost:5000/api
-```
-
-### Authentication Endpoints
-
-#### Register User
-```http
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "securePassword123"
-}
-```
-
-**Response**: `201 Created`
-```json
-{
-  "_id": "user_id",
-  "name": "John Doe",
-  "email": "john@example.com",
-  "role": "customer"
-}
-```
-*Sets httpOnly cookies: `accessToken`, `refreshToken`*
-
----
-
-#### Login User
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "email": "john@example.com",
-  "password": "securePassword123"
-}
-```
-
-**Response**: `200 OK`
-```json
-{
-  "_id": "user_id",
-  "name": "John Doe",
-  "email": "john@example.com",
-  "role": "customer"
-}
-```
-*Sets httpOnly cookies*
-
-> **Important**: Client must send credentials with requests:
-> - Fetch API: `credentials: 'include'`
-> - Axios: `withCredentials: true`
-
----
-
-#### Refresh Token
-```http
-POST /api/auth/refresh
-```
-*Requires `refreshToken` cookie*
-
-**Response**: `200 OK` (sets new `accessToken` cookie)
-
----
-
-#### Logout
-```http
-POST /api/auth/logout
-```
-
-**Response**: `200 OK`
-```json
-{
-  "message": "Logged out successfully"
-}
-```
-*Clears authentication cookies*
-
----
-
-#### Get Profile
-```http
-GET /api/auth/profile
-Authorization: Bearer <access_token>
-```
-
-**Response**: `200 OK`
-```json
-{
-  "_id": "user_id",
-  "name": "John Doe",
-  "email": "john@example.com",
-  "role": "customer",
-  "createdAt": "2024-01-15T10:30:00Z"
-}
+Development: http://localhost:5000/api
+Production: https://your-app.onrender.com/api
 ```
 
 ---
 
-### Product Endpoints
+## 🔐 Authentication
 
-#### List Products
-```http
-GET /api/products?category=electronics&limit=20&page=1
+This API uses **JWT cookie-based authentication**. Cookies are automatically sent with requests when using `axios` with `withCredentials: true`.
+
+### Setup
+
+```javascript
+// src/lib/axios.js
+import axios from 'axios';
+
+const axiosInstance = axios.create({
+  baseURL: '/api',
+  withCredentials: true, // Important for cookies
+});
+
+export default axiosInstance;
 ```
 
-**Response**: `200 OK`
-```json
-{
-  "products": [...],
-  "totalPages": 5,
-  "currentPage": 1
-}
+### Auth Endpoints
+
+#### **POST** `/auth/signup`
+```javascript
+await axios.post('/auth/signup', { name, email, password });
 ```
 
----
-
-#### Get Product Details
-```http
-GET /api/products/:id
+#### **POST** `/auth/login`
+```javascript
+await axios.post('/auth/login', { email, password });
 ```
 
-**Response**: `200 OK`
-```json
-{
-  "_id": "product_id",
-  "name": "Product Name",
-  "price": 99.99,
-  "description": "Product description",
-  "image": "cloudinary_url",
-  "category": "electronics",
-  "stock": 50
-}
+#### **POST** `/auth/logout`
+```javascript
+await axios.post('/auth/logout');
 ```
 
----
-
-### Cart & Order Endpoints
-
-#### Get Cart
-```http
-GET /api/cart
-Authorization: Bearer <access_token>
+#### **GET** `/auth/profile`
+```javascript
+await axios.get('/auth/profile');
 ```
 
-**Response**: `200 OK`
-```json
-{
-  "items": [
-    {
-      "product": {...},
-      "quantity": 2
-    }
-  ],
-  "totalPrice": 199.98
-}
+#### **POST** `/auth/refresh-token`
+```javascript
+await axios.post('/auth/refresh-token');
 ```
 
 ---
 
-#### Add to Cart
-```http
-POST /api/cart
-Authorization: Bearer <access_token>
-Content-Type: application/json
+## 🛍️ Products
 
-{
-  "productId": "product_id",
-  "quantity": 2
-}
+#### **GET** `/products`
+Get all products with optional filters
+```javascript
+await axios.get('/products?category=electronics&featured=true');
 ```
 
-**Response**: `200 OK` (returns updated cart)
+#### **GET** `/products/featured`
+Get featured products
+
+#### **GET** `/products/category/:category`
+Get products by category
+
+#### **GET** `/products/recommendations`
+Get recommended products
+
+#### **GET** `/products/:id`
+Get single product details
 
 ---
 
-### Payment Endpoints
+## 🛒 Cart
 
-#### Create Payment Intent
-```http
-POST /api/payment
-Authorization: Bearer <access_token>
-Content-Type: application/json
+All cart endpoints require authentication.
 
-{
-  "cartId": "cart_id",
-  "paymentMethod": "card"
-}
+#### **GET** `/cart`
+Get user's cart
+
+#### **POST** `/cart`
+Add product to cart
+```javascript
+await axios.post('/cart', { productId, quantity });
 ```
 
-**Response**: `200 OK`
-```json
-{
-  "clientSecret": "pi_xxxxx_secret_xxxxx",
-  "paymentIntentId": "pi_xxxxx"
-}
-```
+#### **DELETE** `/cart/products/:id`
+Remove product from cart
+
+#### **PUT** `/cart/:id`
+Update product quantity
 
 ---
 
-#### Stripe Webhook
-```http
-POST /api/webhook/payment
-Stripe-Signature: signature_from_stripe
-Content-Type: application/json
+## 💳 Payments
 
-{
-  "type": "payment_intent.succeeded",
-  "data": {...}
-}
-```
+#### **POST** `/payments/create-checkout-session`
+Create Stripe checkout session
 
-> **Note**: Use raw body verification with Stripe signature
-
----
-
-### Admin Endpoints
-
-#### Create Product (Admin Only)
-```http
-POST /api/products
-Authorization: Bearer <admin_access_token>
-Content-Type: application/json
-
-{
-  "name": "New Product",
-  "price": 149.99,
-  "description": "Product description",
-  "category": "electronics",
-  "stock": 100,
-  "image": "base64_or_cloudinary_url"
-}
+#### **POST** `/payments/checkout-success`
+Handle successful payment
+```javascript
+await axios.post('/payments/checkout-success', { sessionId });
 ```
 
 ---
 
-#### Update Product (Admin Only)
-```http
-PUT /api/products/:id
-Authorization: Bearer <admin_access_token>
-Content-Type: application/json
+## 📊 Analytics (Admin Only)
 
-{
-  "price": 129.99,
-  "stock": 75
-}
-```
+#### **GET** `/analytics`
+Get sales analytics and statistics
 
 ---
 
-#### Delete Product (Admin Only)
-```http
-DELETE /api/products/:id
-Authorization: Bearer <admin_access_token>
+## 🔧 Admin - Products
+
+#### **POST** `/products` (Admin)
+Create new product
+```javascript
+await axios.post('/products', formData);
 ```
 
----
+#### **PATCH** `/products/:id` (Admin)
+Update product
 
-#### Analytics Dashboard (Admin Only)
-```http
-GET /api/dashboard
-Authorization: Bearer <admin_access_token>
-```
+#### **DELETE** `/products/:id` (Admin)
+Delete product
 
-**Response**: `200 OK`
-```json
-{
-  "totalRevenue": 15000,
-  "totalOrders": 120,
-  "totalUsers": 350,
-  "salesData": [...]
-}
-```
-
----
-
-### Implementation Notes
-
-#### Cookie-Based Authentication
-- Server sets `httpOnly` cookies for security
-- For cross-origin development:
-  ```javascript
-  // Server (Express)
-  app.use(cors({
-    origin: process.env.CLIENT_URL,
-    credentials: true
-  }));
-  
-  // Client (Axios)
-  axios.defaults.withCredentials = true;
-  ```
-
-#### Error Handling
-All endpoints return consistent error responses:
-```json
-{
-  "success": false,
-  "message": "Error description",
-  "error": "Detailed error (dev only)"
-}
-```
+#### **PATCH** `/products/:id/toggle` (Admin)
+Toggle featured status
 
 ---
 
@@ -636,7 +469,6 @@ git push origin main
 - [ ] **Multi-language Support**: Internationalization (i18n)
 - [ ] **Dark Mode**: Theme toggle
 - [ ] **Order Tracking**: Real-time delivery status
-- [ ] **Coupon System**: Discount codes and promotions
 
 ---
 
@@ -649,12 +481,6 @@ Contributions are welcome! Please follow these steps:
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
